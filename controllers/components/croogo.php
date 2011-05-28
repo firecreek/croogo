@@ -115,9 +115,9 @@ class CroogoComponent extends Object {
 
         // types
         $types = $this->controller->Node->Taxonomy->Vocabulary->Type->find('all', array(
-            'conditions' => array(
+            /*'conditions' => array(
                 'Type.plugin <>' => null,
-            ),
+            ),*/
             'order' => 'Type.alias ASC',
         ));
         $this->controller->set('types_for_admin_layout', $types);
@@ -153,6 +153,23 @@ class CroogoComponent extends Object {
                 'config' => 'croogo_blocks',
             ),
         ));
+        
+        //Visibility paths
+        $visibility = array();
+        $visibility[] = array('Block.visibility_paths'=>'');
+        $visibility[] = array('Block.visibility_paths LIKE'=>'%"'.$this->controller->params['url']['url'].'"%');
+        $visibility[] = array('Block.visibility_paths LIKE'=>'%"' . 'controller:' . $this->controller->params['controller'] . '/' . 'action:' . $this->controller->params['action'] . '"%');
+        
+        if(isset($this->controller->params['type']))
+        {
+            $visibility[] = array('Block.visibility_paths LIKE'=>'%"' . 'controller:' . $this->controller->params['controller'] . '/' . 'action:' . $this->controller->params['action'] . '/' . 'type:' . $this->controller->params['type'] . '"%');
+        }
+        
+        if(isset($this->controller->params['slug']))
+        {
+            $visibility[] = array('Block.visibility_paths LIKE'=>'%"' . 'controller:' . $this->controller->params['controller'] . '/' . 'action:' . $this->controller->params['action'] . '/' . 'slug:' . $this->controller->params['slug'] . '"%');
+        }
+        
         foreach ($regions AS $regionId => $regionAlias) {
             $this->blocks_for_layout[$regionAlias] = array();
             $findOptions = array(
@@ -167,12 +184,7 @@ class CroogoComponent extends Object {
                             ),
                         ),
                         array(
-                            'OR' => array(
-                                'Block.visibility_paths' => '',
-                                'Block.visibility_paths LIKE' => '%"' . $this->controller->params['url']['url'] . '"%',
-                                //'Block.visibility_paths LIKE' => '%"' . 'controller:' . $this->params['controller'] . '"%',
-                                //'Block.visibility_paths LIKE' => '%"' . 'controller:' . $this->params['controller'] . '/' . 'action:' . $this->params['action'] . '"%',
-                            ),
+                            'OR' => $visibility,
                         ),
                     ),
                 ),
@@ -416,6 +428,10 @@ class CroogoComponent extends Object {
             // Workaround
             $appInstance =& App::getInstance();
             array_unshift($appInstance->helpers, APP.'views'.DS.'themed'.DS.$controller->theme.DS.'helpers'.DS);
+        }
+        else
+        {
+            die('aaa');
         }
     }
 /**
