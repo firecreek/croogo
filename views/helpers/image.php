@@ -20,19 +20,31 @@ class ImageHelper extends Helper {
      * @return mixed    Either string or echos the value, depends on AUTO_OUTPUT and $return.
      * @access public
      */
-    public function resize($path, $width, $height, $aspect = true, $htmlAttributes = array(), $return = false) {
+    public function resize($path, $width = null, $height = null, $options = array()) {
+    
+        $_options = array(
+          'aspect' => true,
+          'htmlAttributes' => array(),
+          'return' => false
+        );
+        $options = array_merge($_options,$options);
+    
         $types = array(1 => "gif", "jpeg", "png", "swf", "psd", "wbmp"); // used to determine image type
-        if(empty($htmlAttributes['alt'])) $htmlAttributes['alt'] = 'thumb';  // Ponemos alt default
 
         $uploadsDir = 'uploads';
 
         $fullpath = ROOT.DS.APP_DIR.DS.WEBROOT_DIR.DS.$uploadsDir.DS;
         $url = ROOT.DS.APP_DIR.DS.WEBROOT_DIR.DS.$path;
+        
 
         if (!($size = getimagesize($url)))
             return; // image doesn't exist
-
-        if ($aspect) { // adjust to aspect.
+            
+        if(empty($height))
+        {
+          $height = ceil($width / ($size[0]/$size[1]));
+        }
+        elseif ($options['aspect']) { // adjust to aspect.
             if (($size[1]/$height) > ($size[0]/$width))  // $size[0]:width, [1]:height, [2]:type
                 $width = ceil(($size[0]/$size[1]) * $height);
             else
@@ -72,7 +84,14 @@ class ImageHelper extends Helper {
             //copy($url, $cachefile);
         }
 
-        return $this->output(sprintf($this->Html->tags['image'], $relfile, $this->Html->_parseAttributes($htmlAttributes, null, '', ' ')), $return);
+        if($options['return'] == 'path')
+        {
+          return $relfile;
+        }
+        else
+        {
+          return $this->output(sprintf($this->Html->tags['image'], $relfile, $this->Html->_parseAttributes($options['htmlAttributes'], null, '', ' ')), $options['return']);
+        }
     }
 }
 ?>
