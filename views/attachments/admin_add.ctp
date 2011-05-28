@@ -10,7 +10,7 @@
     ?>
     <fieldset>
     <?php
-        echo $this->Form->input('Node.file', array('label' => __('Upload', true), 'type' => 'file',));
+        echo $this->Form->input('Node.file', array('name'=>'files[]','label' => __('Upload', true), 'type' => 'file', 'multiple'=>'multiple'));
     ?>
     </fieldset>
 

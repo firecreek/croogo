@@ -63,7 +63,12 @@ class AttachmentsController extends AppController {
  */
     public function beforeFilter() {
         parent::beforeFilter();
-
+        
+        if($this->action == 'admin_add')
+        {
+          $this->Security->validatePost = false;
+        }
+          
         // Comment, Category, Tag not needed
         $this->Node->unbindModel(array('hasMany' => array('Comment'), 'hasAndBelongsToMany' => array('Category', 'Tag')));
 
@@ -99,48 +104,68 @@ class AttachmentsController extends AppController {
             $this->layout = 'admin_full';
         }
 
-        if (!empty($this->data)) {
-            $file = $this->data['Node']['file'];
-            unset($this->data['Node']['file']);
+        if (!empty($this->data) && isset($this->params['form']['files'])) {
+        
+            $success = false;
+        
+            for($ii = 0; $ii <= count($this->params['form']['files']['name']); $ii++)
+            {
+              $file = array(
+                'name' => $this->params['form']['files']['name'][$ii],
+                'type' => $this->params['form']['files']['type'][$ii],
+                'tmp_name' => $this->params['form']['files']['tmp_name'][$ii],
+                'error' => $this->params['form']['files']['error'][$ii],
+                'size' => $this->params['form']['files']['size'][$ii],
+              );
+            
+              //$file = $this->data['Node']['file'];
+              //unset($this->data['Node']['file']);
 
-            // check if file with same path exists
-            $destination = WWW_ROOT . $this->uploadsDir . DS . $file['name'];
-            if (file_exists($destination)) {
-                $newFileName = String::uuid() . '-' . $file['name'];
-                $destination = WWW_ROOT . $this->uploadsDir . DS . $newFileName;
-            } else {
-                $newFileName = $file['name'];
+              // check if file with same path exists
+              $destination = WWW_ROOT . $this->uploadsDir . DS . $file['name'];
+              if (file_exists($destination)) {
+                  $newFileName = String::uuid() . '-' . $file['name'];
+                  $destination = WWW_ROOT . $this->uploadsDir . DS . $newFileName;
+              } else {
+                  $newFileName = $file['name'];
+              }
+
+              // remove the extension for title
+              if (explode('.', $file['name']) > 0) {
+                  $fileTitleE = explode('.', $file['name']);
+                  array_pop($fileTitleE);
+                  $fileTitle = implode('.', $fileTitleE);
+              } else {
+                  $fileTitle = $file['name'];
+              }
+
+              $this->data['Node']['title'] = $fileTitle;
+              $this->data['Node']['slug'] = $newFileName;
+              $this->data['Node']['mime_type'] = $file['type'];
+              //$this->data['Node']['guid'] = Router::url('/' . $this->uploadsDir . '/' . $newFileName, true);
+              $this->data['Node']['path'] = '/' . $this->uploadsDir . '/' . $newFileName;
+
+              $this->Node->create();
+              if ($this->Node->save($this->data)) {
+                  // move the file
+                  move_uploaded_file($file['tmp_name'], $destination);
+                  $success = true;
+              }
             }
-
-            // remove the extension for title
-            if (explode('.', $file['name']) > 0) {
-                $fileTitleE = explode('.', $file['name']);
-                array_pop($fileTitleE);
-                $fileTitle = implode('.', $fileTitleE);
-            } else {
-                $fileTitle = $file['name'];
+            
+            //
+            if($success)
+            {
+              $this->Session->setFlash(__('The Attachments have been saved', true), 'default', array('class' => 'success'));
+              if (isset($this->params['named']['editor'])) {
+                  $this->redirect(array('action' => 'browse'));
+              } else {
+                  $this->redirect(array('action'=>'index'));
+              }
             }
-
-            $this->data['Node']['title'] = $fileTitle;
-            $this->data['Node']['slug'] = $newFileName;
-            $this->data['Node']['mime_type'] = $file['type'];
-            //$this->data['Node']['guid'] = Router::url('/' . $this->uploadsDir . '/' . $newFileName, true);
-            $this->data['Node']['path'] = '/' . $this->uploadsDir . '/' . $newFileName;
-
-            $this->Node->create();
-            if ($this->Node->save($this->data)) {
-                // move the file
-                move_uploaded_file($file['tmp_name'], $destination);
-
-                $this->Session->setFlash(__('The Attachment has been saved', true), 'default', array('class' => 'success'));
-
-                if (isset($this->params['named']['editor'])) {
-                    $this->redirect(array('action' => 'browse'));
-                } else {
-                    $this->redirect(array('action'=>'index'));
-                }
-            } else {
-                $this->Session->setFlash(__('The Attachment could not be saved. Please, try again.', true), 'default', array('class' => 'error'));
+            else
+            {
+              $this->Session->setFlash(__('The Attachment could not be saved. Please, try again.', true), 'default', array('class' => 'error'));
             }
         }
     }
