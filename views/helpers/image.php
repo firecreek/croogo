@@ -25,7 +25,10 @@ class ImageHelper extends Helper {
         $_options = array(
           'aspect' => true,
           'htmlAttributes' => array(),
-          'return' => false
+          'return' => false,
+          'crop' => false,
+          'fit' => false,
+          'bgColor' => array('255','255','255')
         );
         $options = array_merge($_options,$options);
     
@@ -40,42 +43,81 @@ class ImageHelper extends Helper {
         if (!($size = getimagesize($url)))
             return; // image doesn't exist
             
+        $newWidth = $width;
+        $newHeight = $height;
+            
         if(empty($height))
         {
-          $height = ceil($width / ($size[0]/$size[1]));
+          $newHeight = ceil($width / ($size[0]/$size[1]));
         }
-        elseif ($options['aspect']) { // adjust to aspect.
-            if (($size[1]/$height) > ($size[0]/$width))  // $size[0]:width, [1]:height, [2]:type
-                $width = ceil(($size[0]/$size[1]) * $height);
+        elseif(empty($width))
+        {
+          $newWidth = ceil(($size[0]/$size[1]) * $height);
+        }
+        elseif($options['aspect'] === true) { // adjust to aspect.
+            if(($size[1]/$height) > ($size[0]/$width))
+            {
+              $newWidth = ceil(($size[0]/$size[1]) * $height);
+            }
             else
-                $height = ceil($width / ($size[0]/$size[1]));
+            {
+              $newHeight = ceil($width / ($size[0]/$size[1]));
+            }
         }
 
-        $relfile = $this->webroot.$uploadsDir.'/'.$this->cacheDir.'/'.$width.'x'.$height.'_'.basename($path); // relative file
-        $cachefile = $fullpath.$this->cacheDir.DS.$width.'x'.$height.'_'.basename($path);  // location on server
+        $relfile = $this->webroot.$uploadsDir.'/'.$this->cacheDir.'/'.$newWidth.'x'.$newHeight.'_'.basename($path); // relative file
+        $cachefile = $fullpath.$this->cacheDir.DS.$newWidth.'x'.$newHeight.'_'.basename($path);  // location on server
 
         if (file_exists($cachefile)) {
             $csize = getimagesize($cachefile);
-            $cached = ($csize[0] == $width && $csize[1] == $height); // image is cached
+            $cached = ($csize[0] == $newWidth && $csize[1] == $newHeight); // image is cached
             if (@filemtime($cachefile) < @filemtime($url)) // check if up to date
                 $cached = false;
         } else {
             $cached = false;
         }
+        
+        $cached = false;
 
         if (!$cached) {
-            $resize = ($size[0] > $width || $size[1] > $height) || ($size[0] < $width || $size[1] < $height);
+            $resize = ($size[0] > $newWidth || $size[1] > $newHeight) || ($size[0] < $newWidth || $size[1] < $newHeight);
         } else {
             $resize = false;
         }
 
         if ($resize) {
             $image = call_user_func('imagecreatefrom'.$types[$size[2]], $url);
-            if (function_exists("imagecreatetruecolor") && ($temp = imagecreatetruecolor ($width, $height))) {
-                imagecopyresampled ($temp, $image, 0, 0, 0, 0, $width, $height, $size[0], $size[1]);
-            } else {
-                $temp = imagecreate ($width, $height);
-                imagecopyresized ($temp, $image, 0, 0, 0, 0, $width, $height, $size[0], $size[1]);
+            
+            $dst_x = 0;
+            $dst_y = 0;
+            $src_x = 0;
+            $src_y = 0;
+            
+            $canvasWidth = $newWidth;
+            $canvasHeight = $newHeight;
+            
+            //Fix the image width and height and align the image in the middle
+            if($options['fit'])
+            {
+              $canvasWidth = $width;
+              $canvasHeight = $height;
+              
+              $dst_x = ($canvasWidth / 2) - ($newWidth / 2);
+            }
+            
+            
+            if (function_exists("imagecreatetruecolor") && ($temp = imagecreatetruecolor($canvasWidth, $canvasHeight)))
+            {
+              $bgColour = imagecolorallocate($temp, $options['bgColor'][0], $options['bgColor'][1], $options['bgColor'][2]);
+              imagefilledrectangle($temp, 0, 0, $canvasWidth, $canvasHeight, $bgColour);
+              imagecopyresampled ($temp, $image, $dst_x, $dst_y, $src_x, $src_y, $newWidth, $newHeight, $size[0], $size[1]);
+            }
+            else
+            {
+              $temp = imagecreate ($canvasWidth, $canvasHeight);
+              $bgColour = imagecolorallocate($temp, $options['bgColor'][0], $options['bgColor'][1], $options['bgColor'][2]);
+              imagefilledrectangle($temp, 0, 0, $canvasWidth, $canvasHeight, $bgColour);
+              imagecopyresized ($temp, $image, $dst_x, $dst_y, $src_x, $src_y, $newWidth, $newHeight, $size[0], $size[1]);
             }
             call_user_func("image".$types[$size[2]], $temp, $cachefile);
             imagedestroy ($image);
