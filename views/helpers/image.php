@@ -28,7 +28,8 @@ class ImageHelper extends Helper {
           'return' => false,
           'crop' => false,
           'fit' => false,
-          'bgColor' => array('255','255','255')
+          'bgColor' => array('255','255','255'),
+          'quality' => 80
         );
         $options = array_merge($_options,$options);
     
@@ -64,9 +65,12 @@ class ImageHelper extends Helper {
               $newHeight = ceil($width / ($size[0]/$size[1]));
             }
         }
+        
+        //Cache name
+        $cacheName = $newWidth.'x'.$newHeight.'_' . md5($this->flatten($options)).'-'.basename($path);
 
-        $relfile = $this->webroot.$uploadsDir.'/'.$this->cacheDir.'/'.$newWidth.'x'.$newHeight.'_'.basename($path); // relative file
-        $cachefile = $fullpath.$this->cacheDir.DS.$newWidth.'x'.$newHeight.'_'.basename($path);  // location on server
+        $relfile = $this->webroot.$uploadsDir.'/'.$this->cacheDir.'/'.$cacheName; // relative file
+        $cachefile = $fullpath.$this->cacheDir.DS.$cacheName;  // location on server
 
         if (file_exists($cachefile)) {
             $csize = getimagesize($cachefile);
@@ -76,8 +80,6 @@ class ImageHelper extends Helper {
         } else {
             $cached = false;
         }
-        
-        $cached = false;
 
         if (!$cached) {
             $resize = ($size[0] > $newWidth || $size[1] > $newHeight) || ($size[0] < $newWidth || $size[1] < $newHeight);
@@ -103,6 +105,7 @@ class ImageHelper extends Helper {
               $canvasHeight = $height;
               
               $dst_x = ($canvasWidth / 2) - ($newWidth / 2);
+              $dst_y = ($canvasHeight / 2) - ($newHeight / 2);
             }
             
             
@@ -119,7 +122,7 @@ class ImageHelper extends Helper {
               imagefilledrectangle($temp, 0, 0, $canvasWidth, $canvasHeight, $bgColour);
               imagecopyresized ($temp, $image, $dst_x, $dst_y, $src_x, $src_y, $newWidth, $newHeight, $size[0], $size[1]);
             }
-            call_user_func("image".$types[$size[2]], $temp, $cachefile);
+            call_user_func("image".$types[$size[2]], $temp, $cachefile, $options['quality']);
             imagedestroy ($image);
             imagedestroy ($temp);
         } else {
@@ -135,5 +138,16 @@ class ImageHelper extends Helper {
           return $this->output(sprintf($this->Html->tags['image'], $relfile, $this->Html->_parseAttributes($options['htmlAttributes'], null, '', ' ')), $options['return']);
         }
     }
+    
+    
+    public function flatten(array $array)
+    {
+      $return = array();
+      array_walk_recursive($array, function($a) use (&$return) { $return[] = $a; });
+      return implode(',',$return);
+    }
+
+
+    
 }
 ?>
